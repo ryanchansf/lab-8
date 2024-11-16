@@ -1,15 +1,25 @@
 ---
 title: "Lab 8: Searching for Efficiency"
-author: "Your name here!"
-format: html
+author: "Ryan Chan"
+format: 
+  html:  
+    embed-resources: true
+    code-tools: true
+    toc: true
+    theme: lux
+code-fold: true
 editor: source
-embed-resources: true
+execute: 
+  echo: true
+  warning: false
+  error: true
 ---
 
 ```{r}
 #| label: pacakges
 
 library(tidyverse)
+library(kableExtra)
 ```
 
 For this week's lab, we will be revisiting questions from previous lab
@@ -22,14 +32,17 @@ folder, so all you need to do is read them in. 🙃
 #| label: read-in-old-data
 
 # Data from Lab 2
-surveys <- read_csv(here::here("data", "surveys.csv"))
+surveys <- read_csv(here::here("data", "surveys.csv"),
+                    show_col_types = FALSE)
 
 # Data from Lab 3
-evals <- read_csv(here::here("data", "teacher_evals.csv")) |> 
+evals <- read_csv(here::here("data", "teacher_evals.csv"),
+                  show_col_types = FALSE) |> 
   rename(sex = gender)
 
 # Data from Lab 7
-fish <- read_csv(here::here("data", "BlackfootFish.csv"))
+fish <- read_csv(here::here("data", "BlackfootFish.csv"),
+                 show_col_types = FALSE)
 ```
 
 ## Lab 2
@@ -39,12 +52,17 @@ First up, we're going to revisit Question 3 from Lab 2. This question asked:
 > What are the data types of the variables in this dataset?
 
 **1. Using `map_chr()`, produce a nicely formatted table of the data type of each variable in the `surveys` dataset.** Specifically, the table should have 15 columns, one for
-each variable, with the datatype of that variable immediately below it's name. 
+each variable, with the datatype of that variable immediately below its name. 
 
 ```{r}
 #| label: map-data-types-of-surveys
 
-
+col_types <- map_chr(.x = surveys,
+                     .f = typeof)
+tibble(variable = names(surveys),
+       data_type = col_types) |>
+  pivot_wider(names_from = variable,
+              values_from = data_type)
 ```
 
 ## Lab 3
@@ -62,7 +80,14 @@ list output back into a data frame.
 ```{r}
 #| label: map-to-mutate-columns
 
-
+evals |>
+  map_at(c("teacher_id",
+           "weekday",
+           "academic_degree",
+           "seniority",
+           "sex"),
+         .f = as.factor) |>
+  bind_cols()
 ```
 
 Next up, we're going revisit Question 7 which asked:
@@ -88,7 +113,49 @@ I'm using the `sen_level` classification from Challenge 3
 ```{r}
 #| label: double-pivot-for-summary-table
 
-
+evals |>
+  select(teacher_id,
+         academic_degree,
+         seniority,
+         sex) |>
+  distinct(teacher_id,
+           .keep_all = TRUE) |>
+  mutate(sen_level = case_when(seniority <= 4 ~ "junior",
+                            seniority > 4 ~ "senior")) |>
+  pivot_longer(cols = c(sex,
+                        academic_degree,
+                        sen_level),
+               names_to = "demographic",
+               values_to = "category") |>
+  # rename column names to match
+  mutate(category = case_when(category == "female" ~ "Female",
+                              category == "male" ~ "Male",
+                              category == "junior" ~ "Junior (4 years or less)",
+                              category == "senior" ~ "Senior (more than 4 years)",
+                              category == "no_dgr" ~ "No Degree",
+                              category == "ma" ~ "Masters",
+                              category == "dr" ~ "Doctorate",
+                              category == "prof" ~ "Professor"),
+         # set the order of the columns
+         category = factor(category,
+                            levels = c("Female",
+                                       "Male",
+                                       "Junior (4 years or less)",
+                                       "Senior (more than 4 years)",
+                                       "No Degree",
+                                       "Masters",
+                                       "Doctorate",
+                                       "Professor"))) |>
+  count(category) |>
+  pivot_wider(names_from = category,
+              values_from = n) |>
+  # summarise(across(.cols = everything(),
+  #                  sum)) |>
+  kable() |>
+  kable_styling() |>
+  row_spec(1,
+           background = "lightgray") # TODO: add source for this
+  
 ```
 
 ::: {.callout-tip}
@@ -111,5 +178,6 @@ Question 1 asked you to use `across()` to make a table which summarized:
 ```{r}
 #| label: map-missing-values-of-fish
 
-
+fish |> 
+  map_int(.f = ~ sum(is.na(.)))
 ```
