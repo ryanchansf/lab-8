@@ -38,7 +38,7 @@ surveys <- read_csv(here::here("data", "surveys.csv"),
 # Data from Lab 3
 evals <- read_csv(here::here("data", "teacher_evals.csv"),
                   show_col_types = FALSE) |> 
-  rename(sex = gender)
+  rename(sex = gender) # renaming gender to sex like in lab 3
 
 # Data from Lab 7
 fish <- read_csv(here::here("data", "BlackfootFish.csv"),
@@ -57,12 +57,20 @@ each variable, with the datatype of that variable immediately below its name.
 ```{r}
 #| label: map-data-types-of-surveys
 
+# Source for determining type of object: https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/typeof
+# Source for getting vector of variable names from df: https://stackoverflow.com/questions/55313255/get-variables-names-from-a-data-frame-in-a-vector
+
 col_types <- map_chr(.x = surveys,
                      .f = typeof)
 tibble(variable = names(surveys),
        data_type = col_types) |>
   pivot_wider(names_from = variable,
-              values_from = data_type)
+              values_from = data_type) |>
+  # table formatting (referenced from question 3)
+  kable() |>
+  kable_styling() |>
+  row_spec(1,
+           background = "lightgray")
 ```
 
 ## Lab 3
@@ -81,12 +89,14 @@ list output back into a data frame.
 #| label: map-to-mutate-columns
 
 evals |>
+  # convert select columns into factors
   map_at(c("teacher_id",
            "weekday",
            "academic_degree",
            "seniority",
            "sex"),
          .f = as.factor) |>
+  # output back into dataframe
   bind_cols()
 ```
 
@@ -113,6 +123,19 @@ I'm using the `sen_level` classification from Challenge 3
 ```{r}
 #| label: double-pivot-for-summary-table
 
+# Source for highlighting the row of values: https://chatgpt.com/c/6737f69d-617c-800b-b82c-23922a22065f
+
+category_labels <- c(
+  "female" = "Female",
+  "male" = "Male",
+  "junior" = "Junior (4 years or less)",
+  "senior" = "Senior (more than 4 years)",
+  "no_dgr" = "No Degree",
+  "ma" = "Masters",
+  "dr" = "Doctorate",
+  "prof" = "Professor"
+)
+
 evals |>
   select(teacher_id,
          academic_degree,
@@ -120,22 +143,16 @@ evals |>
          sex) |>
   distinct(teacher_id,
            .keep_all = TRUE) |>
-  mutate(sen_level = case_when(seniority <= 4 ~ "junior",
-                            seniority > 4 ~ "senior")) |>
+  mutate(sen_level = ifelse(seniority <= 4,
+                            "junior",
+                            "senior")) |>
   pivot_longer(cols = c(sex,
                         academic_degree,
                         sen_level),
                names_to = "demographic",
                values_to = "category") |>
   # rename column names to match
-  mutate(category = case_when(category == "female" ~ "Female",
-                              category == "male" ~ "Male",
-                              category == "junior" ~ "Junior (4 years or less)",
-                              category == "senior" ~ "Senior (more than 4 years)",
-                              category == "no_dgr" ~ "No Degree",
-                              category == "ma" ~ "Masters",
-                              category == "dr" ~ "Doctorate",
-                              category == "prof" ~ "Professor"),
+  mutate(category = category_labels[category],
          # set the order of the columns
          category = factor(category,
                             levels = c("Female",
@@ -149,12 +166,11 @@ evals |>
   count(category) |>
   pivot_wider(names_from = category,
               values_from = n) |>
-  # summarise(across(.cols = everything(),
-  #                  sum)) |>
+  # table formatting
   kable() |>
   kable_styling() |>
   row_spec(1,
-           background = "lightgray") # TODO: add source for this
+           background = "lightgray")
   
 ```
 
@@ -178,6 +194,17 @@ Question 1 asked you to use `across()` to make a table which summarized:
 ```{r}
 #| label: map-missing-values-of-fish
 
-fish |> 
-  map_int(.f = ~ sum(is.na(.)))
+# Source for highlighting the row of values: https://chatgpt.com/c/6737f69d-617c-800b-b82c-23922a22065f
+
+missing_vals <- map_int(.x = fish,
+          .f = ~ sum(is.na(.)))
+tibble(variable = names(fish),
+       count = missing_vals) |>
+  pivot_wider(names_from = variable,
+              values_from = count) |>
+  # table formatting
+  kable() |>
+  kable_styling() |>
+  row_spec(1,
+           background = "lightgray")
 ```
